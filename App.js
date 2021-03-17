@@ -50,8 +50,7 @@ const useSum = (key, value) => {
 };
 
 const getNumber = (text) => {
-  if (isNaN(text)) return NaN;
-  return parseInt(text);
+  return !isNaN(text) ? parseInt(text) : NaN;
 };
 
 const getLetters = (text) => {
