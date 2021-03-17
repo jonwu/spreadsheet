@@ -18,28 +18,39 @@ import create from "zustand";
 // 6. What are some edge cases i should consider?
 
 const useStore = create((_set) => ({
-  A: NaN,
-  B: NaN,
-  C: NaN,
-  D: NaN,
+  A: { number: NaN, deps: new Set() },
+  B: { number: NaN, deps: new Set() },
+  C: { number: NaN, deps: new Set() },
+  D: { number: NaN, deps: new Set() },
 }));
 
-export const setNumber = (letter, number) => {
+const setStore = (letter, update) => {
   const data = useStore.getState();
-  useStore.setState({ ...data, [letter]: number });
+  useStore.setState({ ...data, [letter]: { ...data[letter], ...update } });
 };
 
-export const useSum = (letters) => {
+const useSum = (key, value) => {
+  const letters = getLetters(value);
+
   return useStore((state) => {
     if (letters == null) return NaN;
-    const numbers = letters.map((letter) => state[letter]);
-    const sum = _.sum(numbers);
+    let sum = 0;
+
+    for (let i = 0; i < letters.length; i++) {
+      const letter = letters[i];
+      const { deps } = state[letter];
+
+      // handle dependency case. ie B = A, A = B
+      if (deps.has(key)) return NaN;
+      sum += state[letter].number;
+    }
 
     return sum;
   });
 };
 
 const getNumber = (text) => {
+  if (isNaN(text)) return NaN;
   return parseInt(text);
 };
 
@@ -62,15 +73,13 @@ const isValidInput = (text, sum) => {
 
 const Cell = React.memo(({ letter, number }) => {
   const [value, setValue] = React.useState("");
-  const letters = getLetters(value);
-  const sum = useSum(letters);
+  const sum = useSum(letter, value);
+  const isValid = isValidInput(value, sum);
+  const result = number || "";
 
   React.useEffect(() => {
-    setNumber(letter, sum);
+    setStore(letter, { number: sum });
   }, [sum]);
-
-  const isValid = isValidInput(value, sum);
-  const result = number || sum || "";
 
   return (
     <View style={{ flexDirection: "row", padding: 16, alignItems: "center" }}>
@@ -79,8 +88,11 @@ const Cell = React.memo(({ letter, number }) => {
         style={{ width: 100, marginRight: 16, backgroundColor: "lightgray" }}
         value={value}
         onChangeText={(text) => {
-          const updatedNumber = getNumber(text);
-          setNumber(letter, updatedNumber);
+          const number = getNumber(text);
+          const letters = getLetters(text);
+          const deps = new Set(letters);
+
+          setStore(letter, { number, deps });
           setValue(text);
         }}
       />
@@ -94,7 +106,7 @@ function App() {
 
   return (
     <View style={{ flex: 1, justifyContent: "center" }}>
-      {Object.entries(data).map(([letter, number]) => {
+      {Object.entries(data).map(([letter, { number }]) => {
         return <Cell letter={letter} number={number} key={letter} />;
       })}
     </View>
